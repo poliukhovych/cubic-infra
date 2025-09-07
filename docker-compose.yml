@@ -1,0 +1,11 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: unischedule:dev
+    ports: ["8080:8080"]
+    environment:
+      UNISCHEDULE__SERVER__PORT: "8080"
+      UNISCHEDULE__JOBRUNNER__WORKERS: "4"
+      UNISCHEDULE__SOLVER__TIME_LIMIT_SEC: "30"
