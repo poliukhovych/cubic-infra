@@ -62,7 +62,7 @@ services:
       - app-network
 
   frontend:
-    image: ghcr.io/VolodymyrDem/cubic-frontend:latest
+    image: ghcr.io/poliukhovych/cubic-frontend:latest
     restart: always
     environment:
       - API_BASE_URL=/api
