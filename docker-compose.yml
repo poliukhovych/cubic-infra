@@ -15,7 +15,7 @@ services:
       - app-network
 
   main_api:
-    image: ghcr.io/poliukhovych/cubic-backend:latest
+    image: ghcr.io/poliukhovych/cubic-backend:main
     restart: always
     env_file:
       - .env
@@ -30,7 +30,7 @@ services:
       - app-network
 
   scheduler_api:
-    image: ghcr.io/your-github-username/unischedule-py:latest-api
+    image: ghcr.io/poliukhovych/unischedule-py:main-api
     restart: always
     environment:
       - REDIS_URL=redis://redis:6379/0
@@ -42,9 +42,9 @@ services:
       - app-network
 
   scheduler_worker:
-    image: ghcr.io/your-github-username/unischedule-py:latest-worker
+    image: ghcr.io/poliukhovych/unischedule-py:main-worker
     restart: always
-    command: python -m rq worker -u redis://redis:6379/0 default
+    command: rq worker -u redis://redis:6379/0 default
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -62,7 +62,7 @@ services:
       - app-network
 
   frontend:
-    image: ghcr.io/poliukhovych/cubic-frontend:latest
+    image: ghcr.io/poliukhovych/cubic-frontend:main-frontend
     restart: always
     environment:
       - API_BASE_URL=/api
