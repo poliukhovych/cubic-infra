@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for cubic-backend
+  db:
+    image: postgres:16
+    container_name: cubic-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-schedule_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cubic-network
+    restart: unless-stopped
+
+  # Redis for unischedule-py
+  redis:
+    image: redis:7-alpine
+    container_name: cubic-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cubic-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # cubic-backend
+  backend:
+    build:
+      context: ./cubic-backend
+      dockerfile: Dockerfile
+    container_name: cubic-backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-schedule_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-schedule_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production-min-32-characters-long}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Admin}
+      ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-User}
+      CORS_ALLOW_ORIGINS: "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:3000"
+      SCHEDULER_URL: http://solver:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      solver:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./cubic-backend:/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - cubic-network
+    restart: unless-stopped
+
+  # unischedule-py Solver API
+  solver:
+    build:
+      context: ./unischedule-py
+      dockerfile: Dockerfile
+    container_name: cubic-solver
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./unischedule-py/src:/app/src
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - cubic-network
+    restart: unless-stopped
+
+  # unischedule-py Worker
+  solver-worker:
+    build:
+      context: ./unischedule-py
+      dockerfile: Dockerfile
+    container_name: cubic-solver-worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./unischedule-py/src:/app/src
+    command: ["rq", "worker", "-u", "redis://redis:6379/0"]
+    networks:
+      - cubic-network
+    restart: unless-stopped
+
+  # Frontend (React + Nginx)
+  frontend:
+    build:
+      context: ./cubic-frontend
+      dockerfile: Dockerfile
+    container_name: cubic-frontend
+    environment:
+      APP_BASE_PATH: /
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "3000:80"
+    networks:
+      - cubic-network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  cubic-network:
+    driver: bridge
+
