@@ -64,13 +64,25 @@ services:
   frontend:
     image: ghcr.io/poliukhovych/cubic-frontend:main-frontend
     restart: always
-    environment:
-      - API_BASE_URL=/api
-      - APP_BASE_PATH=/cubic-frontend
+    env_file:
+      - .env
     depends_on:
       - main_api
+    expose:
+      - "80"
+    networks:
+      - app-network
+
+  caddy:
+    image: caddy:latest
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     networks:
       - app-network
 
@@ -80,3 +92,5 @@ networks:
 
 volumes:
   db-data:
+  caddy_data:
+  caddy_config:
