@@ -1,91 +1,91 @@
-# Деплой на AWS через Terraform
+# Deploying to AWS with Terraform
 
-Одна команда (`terraform apply`) створює сервер в AWS і піднімає на ньому весь стек
-(`docker-compose.yml` з цього репо). `terraform destroy` — видаляє все.
+One command (`terraform apply`) creates a server in AWS and brings up the whole stack on it
+(`docker-compose.yml` from this repo). `terraform destroy` removes everything.
 
-## 1. AWS-акаунт
+## 1. AWS account
 
-Потрібно: email, номер телефону (SMS/дзвінок з кодом), банківська картка Visa/Mastercard
-(блокується ~$1 для перевірки), адреса.
+You need: an email, a phone number (verification code via SMS/call), a Visa/Mastercard
+(~$1 is held for verification), and an address.
 
 1. https://aws.amazon.com/free → **Create free account**.
-2. При виборі плану — **Free account plan**: гроші з картки не списуються, поки сам
-   не перейдеш на Paid. Дається $100 кредитів (+ до $100 за завдання в консолі),
-   план діє 6 місяців або до вичерпання кредитів.
-3. Наш стек коштує ~$20/міс (EC2 `t3.small` ~$15, Elastic IP ~$3.6, диск ~$1.6),
-   тобто кредитів вистачає на ~5–6 місяців. `t3.small` входить у Free Tier.
+2. When choosing a plan, pick the **Free account plan**: the card is not charged until you
+   switch to Paid yourself. You get $100 in credits (+ up to $100 for completing tasks in the
+   console); the plan lasts 6 months or until the credits run out.
+3. Our stack costs ~$20/month (EC2 `t3.small` ~$15, Elastic IP ~$3.6, disk ~$1.6),
+   so the credits last ~5–6 months. `t3.small` is included in the Free Tier.
 
-> Коли план закінчиться, без переходу на Paid акаунт закриється разом із сервером і БД —
-> заздалегідь зробіть дамп бази.
+> When the plan ends, unless you switch to Paid, the account is closed together with the
+> server and the DB — take a database dump in advance.
 
-## 2. Ключі доступу для Terraform
+## 2. Access keys for Terraform
 
-Не працюйте з root-акаунта.
+Don't use the root account.
 
-1. Консоль AWS → **IAM** → **Users** → **Create user**, ім'я напр. `terraform`.
-2. **Attach policies directly** → `AmazonEC2FullAccess` (усе, що створює Terraform, — це EC2).
-3. Відкрити користувача → **Security credentials** → **Create access key** →
-   *Command Line Interface (CLI)*. Зберегти `Access key ID` і `Secret access key`
-   (secret показується один раз).
-4. Передавати ключі лише тому, хто запускатиме деплой, і не через публічні чати.
-   Не комітити.
+1. AWS Console → **IAM** → **Users** → **Create user**, name e.g. `terraform`.
+2. **Attach policies directly** → `AmazonEC2FullAccess` (everything Terraform creates is EC2).
+3. Open the user → **Security credentials** → **Create access key** →
+   *Command Line Interface (CLI)*. Save the `Access key ID` and `Secret access key`
+   (the secret is shown only once).
+4. Share the keys only with whoever runs the deploy, and never via public chats.
+   Don't commit them.
 
-## 3. Підготовка (на машині, з якої деплоїмо)
+## 3. Setup (on the machine you deploy from)
 
 ```bash
 brew install hashicorp/tap/terraform awscli
-aws configure            # ключі з п.2, region: eu-central-1, output: json
+aws configure            # keys from step 2, region: eu-central-1, output: json
 ```
 
-У корені `cubic-infra`:
+In the `cubic-infra` root:
 
 ```bash
-cp .env.example .env.prod   # заповнити секрети (див. нижче)
+cp .env.example .env.prod   # fill in secrets (see below)
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-`.env.prod` — обов'язково змінити:
-- `POSTGRES_PASSWORD` і пароль у `DATABASE_URL` (однакові)
-- `JWT_SECRET_KEY` — довгий випадковий рядок (`openssl rand -hex 32`)
+`.env.prod` — must be changed:
+- `POSTGRES_PASSWORD` and the password in `DATABASE_URL` (same value)
+- `JWT_SECRET_KEY` — a long random string (`openssl rand -hex 32`)
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_EMAIL`
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REDIRECT_URI=https://<домен>/auth/callback`
-- `CORS_ALLOW_ORIGINS=https://<домен>`
+- `GOOGLE_REDIRECT_URI=https://<domain>/auth/callback`
+- `CORS_ALLOW_ORIGINS=https://<domain>`
 
-## 4. Деплой
+## 4. Deploy
 
 ```bash
 terraform init
-terraform apply          # показує план, підтвердити "yes"
+terraform apply          # shows the plan, confirm with "yes"
 ```
 
-В output буде `public_ip` і `url`. Сервер ще ~3–5 хв ставить Docker і качає образи.
+The output contains `public_ip` and `url`. The server then needs ~3–5 min to install Docker and pull the images.
 
-## 5. Домен
+## 5. Domain
 
-Домен `cubic-helper-m.pp.ua` зареєстрований на nic.ua, NS — «Сервери імен NIC.UA».
+The domain `cubic-helper-m.pp.ua` is registered at nic.ua, with NIC.UA name servers.
 
-1. nic.ua → домен → **Змінити DNS-записи** → додати запис:
-   тип `A`, ім'я `@`, значення — `public_ip` з output.
-2. Коли домен почне резолвитись (`dig +short cubic-helper-m.pp.ua`), Caddy сам отримає
-   HTTPS-сертифікат.
+1. nic.ua → domain → **DNS records** → add a record:
+   type `A`, name `@`, value — `public_ip` from the output.
+2. Once the domain resolves (`dig +short cubic-helper-m.pp.ua`), Caddy obtains
+   an HTTPS certificate automatically.
 3. Google Cloud Console → Credentials → OAuth Client:
    - Authorized JavaScript origins: `https://cubic-helper-m.pp.ua`
    - Authorized redirect URIs: `https://cubic-helper-m.pp.ua/auth/callback`
 
-Без домену (`domain` не задано) сайт працює по `http://<ip>`, але вхід через Google — ні;
-адмін-логін працює.
+Without a domain (`domain` not set) the site works at `http://<ip>`, but Google sign-in doesn't;
+admin login works.
 
-## Оновлення та обслуговування
+## Updates and maintenance
 
-- Нова версія застосунку (після мерджу в `main` CI публікує образи в GHCR):
+- New app version (after a merge into `main`, CI publishes images to GHCR):
   ```bash
   ssh ubuntu@<ip>
   cd /opt/cubic-infra && sudo docker compose pull && sudo docker compose up -d
   ```
-  Для SSH треба задати `ssh_public_key` у `terraform.tfvars` до `apply`.
-- Повторний `terraform apply` не перестворює сервер (БД живе на його диску).
-- `terraform.tfstate` містить секрети з `.env.prod` — не комітити, не губити:
-  без нього Terraform «забуде» про створені ресурси.
-- Видалити все: `terraform destroy`.
+  SSH requires `ssh_public_key` to be set in `terraform.tfvars` before `apply`.
+- Re-running `terraform apply` does not recreate the server (the DB lives on its disk).
+- `terraform.tfstate` contains secrets from `.env.prod` — don't commit it, don't lose it:
+  without it Terraform "forgets" the resources it created.
+- Remove everything: `terraform destroy`.
