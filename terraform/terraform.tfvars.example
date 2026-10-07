@@ -1,0 +1,4 @@
+env_file = "../.env.prod"
+
+# domain         = "cubic-helper.pp.ua"
+# ssh_public_key = "ssh-ed25519 AAAA... you@laptop"

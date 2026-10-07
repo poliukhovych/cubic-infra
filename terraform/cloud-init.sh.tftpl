@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euxo pipefail
+
+# 2 GB of RAM is tight for postgres + solver, so add swap.
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+curl -fsSL https://get.docker.com | sh
+
+git clone --depth 1 --branch "${infra_ref}" "${infra_repo}" /opt/cubic-infra
+cd /opt/cubic-infra
+
+echo "${env_b64}" | base64 -d > .env
+chmod 600 .env
+
+%{ if domain == "" ~}
+cp Caddyfile.local Caddyfile
+%{ else ~}
+sed -i 's/^cubic-helper\.pp\.ua {/${domain} {/' Caddyfile
+%{ endif ~}
+
+docker compose up -d
