@@ -1,0 +1,28 @@
+# Оверлей для локального запуску поверх docker-compose.yml.
+# Використання:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+services:
+  caddy:
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile
+    ports:
+      - "80:80"
+
+  db:
+    ports:
+      - "5432:5432"
+
+  main_api:
+    ports:
+      - "8000:8000"
+    # Локальні сорси поверх образу, щоб правки бекенду працювали без перезбірки
+    volumes:
+      - ../cubic-backend:/app
+
+  scheduler_api:
+    ports:
+      - "8001:8000"
+
+  redis:
+    ports:
+      - "6379:6379"
