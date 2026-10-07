@@ -1,0 +1,17 @@
+# Локальний варіант Caddyfile: слухає http://localhost без ACME/TLS.
+:80 {
+    route /api/* {
+        reverse_proxy main_api:8000
+    }
+
+    # Солвер публікує роути на /v1/*, тому префікс /scheduler зрізаємо.
+    handle_path /scheduler/* {
+        reverse_proxy scheduler_api:8000
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    encode zstd gzip
+}
