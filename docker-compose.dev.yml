@@ -40,7 +40,7 @@ services:
   # cubic-backend
   backend:
     build:
-      context: ./cubic-backend
+      context: ../cubic-backend
       dockerfile: Dockerfile
     container_name: cubic-backend
     env_file:
@@ -68,7 +68,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./cubic-backend:/app
+      - ../cubic-backend:/app
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -79,7 +79,7 @@ services:
   # unischedule-py Solver API
   solver:
     build:
-      context: ./unischedule-py
+      context: ../unischedule-py
       dockerfile: Dockerfile
     container_name: cubic-solver
     environment:
@@ -90,7 +90,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./unischedule-py/src:/app/src
+      - ../unischedule-py/src:/app/src
     command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     networks:
       - cubic-network
@@ -99,7 +99,7 @@ services:
   # unischedule-py Worker
   solver-worker:
     build:
-      context: ./unischedule-py
+      context: ../unischedule-py
       dockerfile: Dockerfile
     container_name: cubic-solver-worker
     environment:
@@ -108,7 +108,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./unischedule-py/src:/app/src
+      - ../unischedule-py/src:/app/src
     command: ["rq", "worker", "-u", "redis://redis:6379/0"]
     networks:
       - cubic-network
@@ -117,7 +117,7 @@ services:
   # Frontend (React + Nginx)
   frontend:
     build:
-      context: ./cubic-frontend
+      context: ../cubic-frontend
       dockerfile: Dockerfile
     container_name: cubic-frontend
     environment:
