@@ -3,10 +3,6 @@ cubic-helper.pp.ua {
         reverse_proxy main_api:8000
     }
 
-    handle_path /scheduler/* {
-        reverse_proxy scheduler_api:8000
-    }
-
     handle {
         reverse_proxy frontend:80
     }
