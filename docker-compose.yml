@@ -45,6 +45,8 @@ services:
     image: ghcr.io/poliukhovych/unischedule-py:main-worker
     restart: always
     command: rq worker -u redis://redis:6379/0 default
+    # A huge solve must not OOM-kill postgres/api on the 2 GB instance
+    mem_limit: 1g
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -74,7 +76,7 @@ services:
       - app-network
 
   caddy:
-    image: caddy:latest
+    image: caddy:2
     restart: always
     ports:
       - "80:80"
