@@ -26,6 +26,12 @@ services:
         condition: service_started
     expose:
       - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - app-network
 
@@ -83,6 +89,38 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - app-network
+
+  # Daily gzipped pg_dump into ./backups, keeps the last 7 days
+  db_backup:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PGHOST: db
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -o pipefail
+        umask 077
+        export PGPASSWORD="$$POSTGRES_PASSWORD"
+        while true; do
+          f="/backups/$$POSTGRES_DB-$$(date +%F).sql.gz"
+          if pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB" | gzip > "$$f.tmp"; then
+            mv "$$f.tmp" "$$f" && echo "backup ok: $$f"
+          else
+            rm -f "$$f.tmp"; echo "backup FAILED" >&2
+          fi
+          find /backups -name '*.sql.gz' -mtime +7 -delete
+          sleep 86400
+        done
     networks:
       - app-network
 
