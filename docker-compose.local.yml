@@ -1,5 +1,5 @@
-# Оверлей для локального запуску поверх docker-compose.yml.
-# Використання:
+# Overlay for running locally on top of docker-compose.yml.
+# Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 services:
   caddy:
@@ -15,7 +15,7 @@ services:
   main_api:
     ports:
       - "8000:8000"
-    # Локальні сорси поверх образу, щоб правки бекенду працювали без перезбірки
+    # Mount local sources over the image so backend edits work without a rebuild
     volumes:
       - ../cubic-backend:/app
 
