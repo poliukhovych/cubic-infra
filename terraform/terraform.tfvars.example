@@ -1,4 +1,5 @@
-env_file = "../.env.prod"
+env_file   = "../.env.prod"
+aws_region = "eu-central-1"
 
-# domain         = "cubic-helper.pp.ua"
+# domain         = "cubic-helper-m.pp.ua"
 # ssh_public_key = "ssh-ed25519 AAAA... you@laptop"
