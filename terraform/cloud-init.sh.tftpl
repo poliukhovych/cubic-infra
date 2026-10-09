@@ -8,6 +8,12 @@ mkswap /swapfile
 swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
+# Default json-file logs grow without limit and can fill the disk
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<'JSON'
+{"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "3"}}
+JSON
+
 curl -fsSL https://get.docker.com | sh
 
 git clone --depth 1 --branch "${infra_ref}" "${infra_repo}" /opt/cubic-infra

@@ -26,6 +26,12 @@ services:
         condition: service_started
     expose:
       - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - app-network
 
@@ -45,6 +51,8 @@ services:
     image: ghcr.io/poliukhovych/unischedule-py:main-worker
     restart: always
     command: rq worker -u redis://redis:6379/0 default
+    # A huge solve must not OOM-kill postgres/api on the 2 GB instance
+    mem_limit: 1g
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -64,8 +72,14 @@ services:
   frontend:
     image: ghcr.io/poliukhovych/cubic-frontend:main-frontend
     restart: always
-    env_file:
-      - .env
+    # Only public runtime config, never the whole .env (it holds backend secrets)
+    environment:
+      APP_BASE_PATH: ${APP_BASE_PATH:-/}
+      API_BASE_URL: ${API_BASE_URL:-/api}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_USE_CODE_FLOW: ${GOOGLE_USE_CODE_FLOW:-1}
+      DEV_AUTH: ${DEV_AUTH:-0}
     depends_on:
       - main_api
     expose:
@@ -74,7 +88,7 @@ services:
       - app-network
 
   caddy:
-    image: caddy:latest
+    image: caddy:2
     restart: always
     ports:
       - "80:80"
@@ -83,6 +97,38 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - app-network
+
+  # Daily gzipped pg_dump into ./backups, keeps the last 7 days
+  db_backup:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PGHOST: db
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -o pipefail
+        umask 077
+        export PGPASSWORD="$$POSTGRES_PASSWORD"
+        while true; do
+          f="/backups/$$POSTGRES_DB-$$(date +%F).sql.gz"
+          if pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB" | gzip > "$$f.tmp"; then
+            mv "$$f.tmp" "$$f" && echo "backup ok: $$f"
+          else
+            rm -f "$$f.tmp"; echo "backup FAILED" >&2
+          fi
+          find /backups -name '*.sql.gz' -mtime +7 -delete
+          sleep 86400
+        done
     networks:
       - app-network
 

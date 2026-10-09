@@ -3,15 +3,18 @@ cubic-helper.pp.ua {
         reverse_proxy main_api:8000
     }
 
-    handle_path /scheduler/* {
-        reverse_proxy scheduler_api:8000
-    }
-
     handle {
         reverse_proxy frontend:80
     }
 
     encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
     log {
         output file /var/log/caddy/access.log
     }
