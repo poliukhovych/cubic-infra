@@ -64,8 +64,14 @@ services:
   frontend:
     image: ghcr.io/poliukhovych/cubic-frontend:main-frontend
     restart: always
-    env_file:
-      - .env
+    # Only public runtime config, never the whole .env (it holds backend secrets)
+    environment:
+      APP_BASE_PATH: ${APP_BASE_PATH:-/}
+      API_BASE_URL: ${API_BASE_URL:-/api}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_USE_CODE_FLOW: ${GOOGLE_USE_CODE_FLOW:-1}
+      DEV_AUTH: ${DEV_AUTH:-0}
     depends_on:
       - main_api
     expose:
