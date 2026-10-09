@@ -8,6 +8,13 @@ cubic-helper.pp.ua {
     }
 
     encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
     log {
         output file /var/log/caddy/access.log
     }
