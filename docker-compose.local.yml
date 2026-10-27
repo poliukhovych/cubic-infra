@@ -15,6 +15,10 @@ services:
   main_api:
     ports:
       - "127.0.0.1:8000:8000"
+    # Structured logs: scripts/log_report.py reads status_code and duration from them
+    environment:
+      - USE_JSON_LOGS=true
+      - LOG_LEVEL=INFO
     # Mount local sources over the image so backend edits work without a rebuild
     volumes:
       - ../cubic-backend:/app
